@@ -1,0 +1,19 @@
+[project]
+name = "MCP"
+version = "1.0.0"
+description = "MCP leveraged LLM"
+readme = "README.md"
+dependencies = [
+    "requests",
+    "openai",
+    "mcp",
+]
+requires-python = ">=3.10"
+
+[dependency-groups]
+dev = [
+    "mcp[cli]",
+]
+
+[tool.uv.sources]
+mcp = { workspace = true }
