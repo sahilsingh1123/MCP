@@ -1,9 +1,9 @@
 # client.py
 import json
 from openai import OpenAI
-
+import os
 import asyncio
-
+from dotenv import load_dotenv
 from mcp import (
     ClientSession,
     StdioServerParameters,
@@ -12,8 +12,12 @@ from mcp.client.stdio import (
     stdio_client,
 )  # STDIO transport helper :contentReference[oaicite:6]{index=6}
 
+load_dotenv()
+API_KEY = os.getenv("OPENAI_API_KEY")
+
+
 # A) Define “function” spec for OpenAI (unchanged)
-client = OpenAI(api_key="test_api_key")
+client = OpenAI()
 functions = [
     {
         "name": "list_repos",
@@ -30,19 +34,30 @@ functions = [
 async def main():
     # —––– connect to MCP server over stdio
     server_params = StdioServerParameters(
-        command="python", args=["bin/mcp_server.py"], env=None
+        command="python",
+        args=["/Users/sahilsingh/coding/github_codes/MCP/bin/mcp_server.py"],
+        env=None,
     )
 
     async with stdio_client(server_params) as (r, w):
         async with ClientSession(r, w) as session:
             await session.initialize()
+            # messages = [
+            #     {
+            #         "role": "system",
+            #         "content": (
+            #             "You are an AI assistant with access to a tool "
+            #             "called list_repos(user) that returns a user’s GitHub repositories. "
+            #             "Whenever a user asks for GitHub repositories, call that tool."
+            #         ),
+            #     },
+            #     {"role": "user", "content": "Show me octocat’s GitHub repos"},
+            # ]
             messages = [
                 {
                     "role": "system",
                     "content": (
                         "You are an AI assistant with access to a tool "
-                        "called list_repos(user) that returns a user’s GitHub repositories. "
-                        "Whenever a user asks for GitHub repositories, call that tool."
                     ),
                 },
                 {"role": "user", "content": "Show me octocat’s GitHub repos"},
@@ -61,13 +76,15 @@ async def main():
             if msg.function_call is not None:
                 fname = msg.function_call.name  # "list_repos"
                 args = json.loads(msg.function_call.arguments)
+                print(f"fname and args = {fname}({args})")
 
                 # 6) Map to the actual MCP method "github.list_repos"
                 #     (server_name.method_name)
                 result = await session.call_tool(
-                    f"GitHub.{fname}", args  # ← yields "GitHub.list_repos"
+                    f"{fname}", args  # ← yields "GitHub.list_repos"
                 )
                 json_str = result.model_dump_json()
+                print("json_str", json_str)
 
                 # 7) Feed result back into the LLM
                 follow = client.chat.completions.create(
